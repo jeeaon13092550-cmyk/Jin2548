@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Helper Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .chat-container {
+            height: calc(100vh - 160px);
+        }
+        .message-appear {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 h-screen flex flex-col">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white p-4 shadow-md flex items-center gap-3">
+        <div class="bg-white p-2 rounded-full">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+        </div>
+        <div>
+            <h1 class="font-bold text-lg">Calendar Assistant</h1>
+            <p class="text-xs text-blue-100">ออนไลน์ - พร้อมช่วยคุณนัดหมาย</p>
+        </div>
+    </header>
+
+    <!-- Chat Body -->
+    <main id="chat-window" class="flex-1 overflow-y-auto p-4 space-y-4 chat-container hide-scrollbar">
+        <!-- Bot Message -->
+        <div class="flex justify-start message-appear">
+            <div class="bg-white p-3 rounded-lg shadow-sm max-w-[80%] border-l-4 border-blue-500">
+                <p class="text-gray-800 text-sm">สวัสดีครับ! ผมคือผู้ช่วยนัดหมายของคุณ วันนี้อยากจะสร้างนัดหมายเรื่องอะไรดีครับ?</p>
+            </div>
+        </div>
+
+        <!-- Quick Options -->
+        <div id="quick-options" class="flex flex-wrap gap-2 mt-2">
+            <button onclick="handleQuickSelect('ประชุมงาน')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">📅 ประชุมงาน</button>
+            <button onclick="handleQuickSelect('ไปพบแพทย์')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">🏥 ไปพบแพทย์</button>
+            <button onclick="handleQuickSelect('ออกกำลังกาย')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">💪 ออกกำลังกาย</button>
+            <button onclick="handleQuickSelect('นัดทานข้าว')" class="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-full text-sm hover:bg-blue-200 transition">🍴 นัดทานข้าว</button>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <footer class="bg-white p-4 border-t border-gray-200 shadow-inner">
+        <form id="chat-form" class="flex gap-2">
+            <input type="text" id="user-input" placeholder="พิมพ์ข้อความที่นี่..." 
+                class="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 transition text-sm">
+            <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                </svg>
+            </button>
+        </form>
+    </footer>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const quickOptions = document.getElementById('quick-options');
+
+        let appointmentData = {
+            title: '',
+            date: '',
+            time: ''
+        };
+
+        let currentStep = 'ASK_TITLE';
+
+        // Helper to append message
+        function appendMessage(text, isUser = false, isHtml = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} message-appear`;
+            
+            const content = document.createElement('div');
+            content.className = `${isUser ? 'bg-blue-600 text-white' : 'bg-white text-gray-800 border-l-4 border-blue-500'} p-3 rounded-lg shadow-sm max-w-[80%] text-sm`;
+            
+            if (isHtml) {
+                content.innerHTML = text;
+            } else {
+                content.innerText = text;
+            }
+
+            wrapper.appendChild(content);
+            chatWindow.appendChild(wrapper);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }
+
+        // Handle Quick Selection
+        window.handleQuickSelect = (text) => {
+            handleUserMessage(text);
+        };
+
+        // Main Logic
+        async function processInput(input) {
+            switch(currentStep) {
+                case 'ASK_TITLE':
+                    appointmentData.title = input;
+                    appendMessage("รับทราบครับ! คุณต้องการนัดวันที่เท่าไหร่ครับ? (ตัวอย่าง: 2024-12-25)");
+                    currentStep = 'ASK_DATE';
+                    // Show Date Input Hint
+                    userInput.type = 'date';
+                    break;
+                
+                case 'ASK_DATE':
+                    appointmentData.date = input;
+                    appendMessage("โอเคครับ แล้วเวลาไหนดีครับ?");
+                    currentStep = 'ASK_TIME';
+                    userInput.type = 'time';
+                    break;
+                
+                case 'ASK_TIME':
+                    appointmentData.time = input;
+                    currentStep = 'DONE';
+                    userInput.type = 'text';
+                    showSummary();
+                    break;
+                
+                default:
+                    appendMessage("นัดหมายเสร็จสมบูรณ์แล้ว หากต้องการเริ่มใหม่ เพียงแค่พิมพ์ 'เริ่มใหม่' นะครับ");
+                    if (input.includes('เริ่มใหม่')) {
+                        resetChat();
+                    }
+                    break;
+            }
+        }
+
+        function showSummary() {
+            const googleCalUrl = createGoogleCalendarUrl();
+            const summaryHtml = `
+                <strong>สรุปการนัดหมาย:</strong><br>
+                📌 เรื่อง: ${appointmentData.title}<br>
+                📅 วันที่: ${appointmentData.date}<br>
+                ⏰ เวลา: ${appointmentData.time}<br><br>
+                <a href="${googleCalUrl}" target="_blank" class="block bg-green-500 text-white text-center py-2 px-4 rounded mt-2 hover:bg-green-600 transition">
+                    ยืนยันและเพิ่มใน Google Calendar
+                </a>
+                <button onclick="resetChat()" class="block w-full text-blue-600 text-center py-2 mt-1 underline text-xs">เริ่มนัดหมายใหม่</button>
+            `;
+            appendMessage(summaryHtml, false, true);
+        }
+
+        function createGoogleCalendarUrl() {
+            const startDateTime = appointmentData.date.replace(/-/g, '') + 'T' + appointmentData.time.replace(/:/g, '') + '00';
+            // Default 1 hour duration
+            const endHour = (parseInt(appointmentData.time.split(':')[0]) + 1).toString().padStart(2, '0');
+            const endDateTime = appointmentData.date.replace(/-/g, '') + 'T' + endHour + appointmentData.time.split(':')[1].replace(/:/g, '') + '00';
+            
+            const baseUrl = 'https://www.google.com/calendar/render?action=TEMPLATE';
+            return `${baseUrl}&text=${encodeURIComponent(appointmentData.title)}&dates=${startDateTime}/${endDateTime}&details=Created+by+Calendar+Bot`;
+        }
+
+        function handleUserMessage(text) {
+            if (!text.trim()) return;
+            appendMessage(text, true);
+            quickOptions.style.display = 'none';
+            
+            // Add slight delay for "bot thinking" feel
+            setTimeout(() => {
+                processInput(text);
+            }, 600);
+        }
+
+        function resetChat() {
+            appointmentData = { title: '', date: '', time: '' };
+            currentStep = 'ASK_TITLE';
+            userInput.type = 'text';
+            chatWindow.innerHTML = '';
+            appendMessage("สวัสดีครับ! ผมพร้อมช่วยนัดหมายใหม่แล้ว วันนี้อยากจะนัดเรื่องอะไรครับ?");
+            quickOptions.style.display = 'flex';
+        }
+
+        // Form Event Listener
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const text = userInput.value;
+            handleUserMessage(text);
+            userInput.value = '';
+        });
+
+    </script>
+</body>
+</html>
